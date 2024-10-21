@@ -1,1 +1,0 @@
-/usr/bin/c++  -O0 -Wall -g -ggdb3 CMakeFiles/Dino_1011.dir/main.cpp.o CMakeFiles/Dino_1011.dir/DinoGame.cpp.o CMakeFiles/Dino_1011.dir/Renderer.cpp.o CMakeFiles/Dino_1011.dir/Globals.cpp.o -o Dino_1011   -L/home/zjm/ZJM/SDL2_all_in_one/_install/lib  -Wl,-rpath,/home/zjm/ZJM/SDL2_all_in_one/_install/lib -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer 
