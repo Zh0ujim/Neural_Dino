@@ -1,0 +1,3 @@
+/home/zjm/Dino/build/CMakeFiles/Dino_1011.dir
+/home/zjm/Dino/build/CMakeFiles/edit_cache.dir
+/home/zjm/Dino/build/CMakeFiles/rebuild_cache.dir
