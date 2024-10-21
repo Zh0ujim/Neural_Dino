@@ -9,6 +9,7 @@
 #include <thread>
 #include <atomic>
 
+
 // 常量定义
 constexpr int Width_Window = 1600;
 constexpr int Height_Window = 350;
@@ -96,5 +97,8 @@ extern std::thread t;
 extern std::atomic<int> spikes_count;
 extern std::atomic<bool> stop_thread;
 extern std::atomic<bool> jump;
+
+extern int calculateDistance(SDL_Rect dino, struct use *obstacles); // 声明 calculateDistance 函数
+extern void message_thread();
 
 #endif // GLOBALS_H

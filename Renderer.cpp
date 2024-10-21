@@ -90,7 +90,7 @@ void Renderer::RenderObstacle(SDL_Surface* surface[], SDL_Rect rects[], int coun
             {
                 Obstacle_Use[i].detect = false;
                 int t = score_m > 500 ? 9 : 5;
-                Obstacle_Use[i].Obstacle_i = rand() % t;
+                Obstacle_Use[i].Obstacle_i = rand() % 7;
 
                 if (Obstacle_Use[i].Obstacle_i >= 7)//Bird作为Obstacle
                 {

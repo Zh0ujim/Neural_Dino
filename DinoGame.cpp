@@ -5,6 +5,119 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
 
+#include <climits> // 添加这个头文件以确保 INT_MAX 被正确定义
+
+#include <unistd.h>
+//#include "events.hpp"
+#include "maxlab/include/maxlab/maxlab.h"
+
+int calculateDistance(SDL_Rect dino, struct use *obstacles) {
+    int min_distance = INT_MAX;
+    for (int i = 0; i < 3; i++) {
+        if (obstacles[i].Obstacle_i > -1) { // if the obstacle is valid
+            int distance = obstacles[i].Rect->x - (dino.x + dino.w);
+            if (distance < min_distance&&distance>0) {
+                min_distance = distance;
+            }
+        }
+    }
+    return min_distance;
+}
+
+void message_thread(){
+//    if (argc < 2) {
+//        fprintf(stderr, "Call with: %s [detection_channel]", argv[0]);
+//        exit(1);
+//    }
+//    const int detection_channel = atoi(argv[1]);
+
+    maxlab::checkVersions();
+    maxlab::verifyStatus(maxlab::DataStreamerFiltered_open(maxlab::FilterType::IIR));
+    printf("thread\n");
+
+    uint64_t blanking = 0;
+    int isi ;
+    maxlab::FilteredFrameData frameData;
+    int distance;
+
+    bool close;
+    //printf("stop_thread=%d\n",stop_thread.load());
+    while (!stop_thread) {
+	
+        maxlab::Status status = maxlab::DataStreamerFiltered_receiveNextFrame(&frameData);
+        if (status == maxlab::Status::MAXLAB_NO_FRAME)
+            continue;
+
+	distance = calculateDistance(TheDINO_Rect[0], Obstacle_Use);
+    printf("distance: %d\n", distance);
+
+            
+	if(distance<=300&&distance>270) blanking = 0; //
+
+	if(blanking == 0){
+        if(distance>800 ) {
+            const maxlab::Status status = maxlab::sendSequence("close_loop1");
+   	    blanking = 800*800/200 * 20;
+	}
+	else if(distance<=800&&distance>300 ) {
+	    const maxlab::Status status = maxlab::sendSequence("close_loop1");
+	    blanking = distance*distance/200 * 20;
+	}
+	else if(distance<=300&&distance>100){
+            
+	    const maxlab::Status status = maxlab::sendSequence("close_loop1");
+	    blanking = 100*100/200 * 20;
+
+	    //else blanking = 100*100 /200 *20;    //20hz
+	}
+
+
+        if (status != maxlab::Status::MAXLAB_OK) {
+          maxlab::Response response = maxlab::sendRaw("get_errors");
+          fprintf(stderr, "An error occured: %s\n", response.content);
+          maxlab::freeResponse(&response);
+        }
+        }
+
+    
+
+
+	spikes_count = frameData.spikeCount;
+
+        if (blanking > 0) {
+            blanking--;
+            if (blanking != 0)
+                continue;
+        }
+
+        
+	if(spikes_count>=10){
+            printf("spike count(thread): %d\n", spikes_count.load());
+	    jump = 1;
+	    blanking = 2000;  //2000 samples,100ms
+	}
+	
+//        for (int i = 0; i < frameData.spikeCount; ++i) {
+//            const maxlab::SpikeEvent &spike = frameData.spikeEvents[i];
+//            if (spike.channel == detection_channel) {
+//                const maxlab::Status status = maxlab::sendSequence("stimulation_sequence");
+//
+//                blanking = 8000;
+//
+//                if (status != maxlab::Status::MAXLAB_OK) {
+//                    maxlab::Response response = maxlab::sendRaw("get_errors");
+//                    fprintf(stderr, "An error occured: %s\n", response.content);
+//                    maxlab::freeResponse(&response);
+//                }
+//            }
+//        }
+    }
+    maxlab::verifyStatus(maxlab::DataStreamerFiltered_close());
+
+
+}
+
+
 DinoGame::DinoGame() {
     renderer.Initialize("MY DINO", Width_Window, Height_Window);
     
@@ -173,6 +286,12 @@ void DinoGame::Jump() {
 }
 
 void DinoGame::Play() {
+
+    std::thread t(message_thread);
+    //t.detach();
+    printf("start thread\n");
+    sleep(1);
+
     Set();
 
     std::cout << "start game" << std::endl;
@@ -184,6 +303,8 @@ void DinoGame::Play() {
             switch (MainEvent.type)
             {
                 case SDL_QUIT:
+                    stop_thread = true;
+                    t.join();
                     return;
                     break;
 
@@ -191,6 +312,8 @@ void DinoGame::Play() {
                     switch (MainEvent.key.keysym.sym)
                     {
                         case SDLK_ESCAPE:
+                            stop_thread = true;
+                            t.join();
                             return;
                             break;
 
@@ -263,6 +386,8 @@ void DinoGame::Play() {
                 switch (MainEvent.type)
                 {
                     case SDL_QUIT:
+                        stop_thread = true;
+                        t.join();
                         return;
                         break;
 
@@ -270,6 +395,8 @@ void DinoGame::Play() {
                         switch (MainEvent.key.keysym.sym)
                         {
                             case SDLK_ESCAPE:
+                                stop_thread = true;
+                                t.join();
                                 return;
                                 break;
 
@@ -316,6 +443,8 @@ void DinoGame::Play() {
             ControlFPS(FStartTime);
         }
     }
+    
+    t.join();
 }
 
 void DinoGame::ControlFPS(clock_t FStartTime) {

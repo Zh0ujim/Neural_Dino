@@ -11,10 +11,10 @@ include_directories("/home/maxwell/ZJM/Neural-Dino/Neural_Dino/maxlab/include/ma
 link_directories("/home/maxwell/ZJM/SDL_all_in_one/lib")
 link_directories("/home/maxwell/ZJM/Neural-Dino/Neural_Dino/maxlab/lib")
 
+#虚拟机相关头文件静态库路径
 # include_directories("/home/zjm/ZJM/SDL2_all_in_one/_install/include")
-
 # link_directories("/home/zjm/ZJM/SDL2_all_in_one/_install/lib")
 
 add_executable(Dino_1011 main.cpp DinoGame.cpp Renderer.cpp Globals.cpp)
 
-target_link_libraries(Dino_1011 PRIVATE  SDL2main SDL2 SDL2_image SDL2_ttf SDL2_mixer)
+target_link_libraries(Dino_1011 PRIVATE  maxlab pthread  SDL2main SDL2 SDL2_image SDL2_ttf SDL2_mixer)

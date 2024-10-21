@@ -72,3 +72,4 @@ std::thread t;
 std::atomic<int> spikes_count(0);
 std::atomic<bool> stop_thread(false);
 std::atomic<bool> jump(false);
+
