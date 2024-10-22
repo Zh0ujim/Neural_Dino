@@ -15,8 +15,8 @@ constexpr int Width_Window = 1600;
 constexpr int Height_Window = 350;
 constexpr int MinInterval_Half = 100;
 constexpr int mFPS = 40;
-constexpr int V = 9;
-constexpr int Tan = 2;
+constexpr int V = 6;
+constexpr int Tan = 5;
 
 // 声明全局变量
 extern bool down, crouch, collision;

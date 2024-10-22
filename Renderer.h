@@ -23,6 +23,7 @@ public:
     void RenderDino(SDL_Texture* texture, SDL_Rect* rect);
     void RenderScore(unsigned long score, TTF_Font* font, SDL_Rect& rect);
     void RenderGameover(SDL_Texture* hitTexture, SDL_Texture* gameoverTexture, SDL_Texture* restartTexture, SDL_Rect& hitRect, SDL_Rect& gameoverRect, SDL_Rect& restartRect, bool crouch, SDL_Rect* theDinoRect, SDL_Surface* hitSurface);
+    void RenderPause(SDL_Texture* hitTexture, SDL_Rect& hitRect, bool crouch, SDL_Rect* theDinoRect, SDL_Surface* hitSurface) ;
     void DestroyTexture(SDL_Texture*& texture);
 
     SDL_Renderer* GetRenderer() const;

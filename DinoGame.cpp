@@ -48,74 +48,73 @@ void message_thread(){
         if (status == maxlab::Status::MAXLAB_NO_FRAME)
             continue;
 
-	distance = calculateDistance(TheDINO_Rect[0], Obstacle_Use);
-    printf("distance: %d\n", distance);
+        distance = calculateDistance(TheDINO_Rect[0], Obstacle_Use);
+        printf("distance: %d\n", distance);
+                
+        if(distance<=300&&distance>270) blanking = 0; //
 
-            
-	if(distance<=300&&distance>270) blanking = 0; //
-
-	if(blanking == 0){
-        if(distance>800 ) {
-            const maxlab::Status status = maxlab::sendSequence("close_loop1");
-   	    blanking = 800*800/200 * 20;
-	}
-	else if(distance<=800&&distance>300 ) {
-	    const maxlab::Status status = maxlab::sendSequence("close_loop1");
-	    blanking = distance*distance/200 * 20;
-	}
-	else if(distance<=300&&distance>100){
-            
-	    const maxlab::Status status = maxlab::sendSequence("close_loop1");
-	    blanking = 100*100/200 * 20;
-
-	    //else blanking = 100*100 /200 *20;    //20hz
-	}
+        if(blanking == 0){
+            if(distance>800 ) {
+                const maxlab::Status status = maxlab::sendSequence("close_loop1");
+                blanking = 800*800/200 * 20;
+            }
+            else if(distance<=800&&distance>300 ) {
+                const maxlab::Status status = maxlab::sendSequence("close_loop1");
+                blanking = distance*distance/200 * 20;
+            }
+            else if(distance<=300&&distance>100){
+                const maxlab::Status status = maxlab::sendSequence("close_loop1");
+                blanking = 100*100/200 * 20;
+                //else blanking = 100*100 /200 *20;    //20hz
+            }
 
 
-        if (status != maxlab::Status::MAXLAB_OK) {
-          maxlab::Response response = maxlab::sendRaw("get_errors");
-          fprintf(stderr, "An error occured: %s\n", response.content);
-          maxlab::freeResponse(&response);
-        }
+            if (status != maxlab::Status::MAXLAB_OK) {
+            maxlab::Response response = maxlab::sendRaw("get_errors");
+            fprintf(stderr, "An error occured: %s\n", response.content);
+            maxlab::freeResponse(&response);
+            }
         }
 
     
 
 
-	spikes_count = frameData.spikeCount;
+        spikes_count = frameData.spikeCount;
 
-        if (blanking > 0) {
-            blanking--;
-            if (blanking != 0)
-                continue;
+            if (blanking > 0) {
+                blanking--;
+                if (blanking != 0)
+                    continue;
+            }
+
+            
+        if(spikes_count>=10){
+                printf("spike count(thread): %d\n", spikes_count.load());
+            jump = 1;
+            blanking = 2000;  //2000 samples,100ms
         }
-
         
-	if(spikes_count>=10){
-            printf("spike count(thread): %d\n", spikes_count.load());
-	    jump = 1;
-	    blanking = 2000;  //2000 samples,100ms
-	}
-	
-//        for (int i = 0; i < frameData.spikeCount; ++i) {
-//            const maxlab::SpikeEvent &spike = frameData.spikeEvents[i];
-//            if (spike.channel == detection_channel) {
-//                const maxlab::Status status = maxlab::sendSequence("stimulation_sequence");
-//
-//                blanking = 8000;
-//
-//                if (status != maxlab::Status::MAXLAB_OK) {
-//                    maxlab::Response response = maxlab::sendRaw("get_errors");
-//                    fprintf(stderr, "An error occured: %s\n", response.content);
-//                    maxlab::freeResponse(&response);
-//                }
-//            }
-//        }
+    //        for (int i = 0; i < frameData.spikeCount; ++i) {
+    //            const maxlab::SpikeEvent &spike = frameData.spikeEvents[i];
+    //            if (spike.channel == detection_channel) {
+    //                const maxlab::Status status = maxlab::sendSequence("stimulation_sequence");
+    //
+    //                blanking = 8000;
+    //
+    //                if (status != maxlab::Status::MAXLAB_OK) {
+    //                    maxlab::Response response = maxlab::sendRaw("get_errors");
+    //                    fprintf(stderr, "An error occured: %s\n", response.content);
+    //                    maxlab::freeResponse(&response);
+    //                }
+    //            }
+    //        }
     }
     maxlab::verifyStatus(maxlab::DataStreamerFiltered_close());
 
 
 }
+
+
 
 
 DinoGame::DinoGame() {
@@ -295,6 +294,10 @@ void DinoGame::Play() {
     Set();
 
     std::cout << "start game" << std::endl;
+
+    bool pause;
+    int blanking = 0;
+
     while (true)
     {
         clock_t FStartTime = clock();
@@ -325,6 +328,10 @@ void DinoGame::Play() {
                         case SDLK_SPACE:
                             std::cout << "space press" << std::endl;
                             jump = true;
+                            break;
+
+                        case SDLK_p:
+                            pause = true;
                             break;
 
                         default:
@@ -375,8 +382,6 @@ void DinoGame::Play() {
 
         if (life < 0)
         {
-            Mix_PauseMusic();
-
             // 调用新的 RenderGameover 函数
             renderer.RenderGameover(Hit_Texture, Gameover_Texture, Restart_Texture, Hit_Rect, Gameover_Rect, Restart_Rect, crouch, TheDINO_Rect, Hit_Surface);
 
@@ -402,6 +407,10 @@ void DinoGame::Play() {
 
                             case SDLK_RETURN:
                                 Replay = true;
+                                break;
+                            
+                            case SDLK_p:
+                                pause = true;
                                 break;
 
                             default:
@@ -442,8 +451,72 @@ void DinoGame::Play() {
         {
             ControlFPS(FStartTime);
         }
+
+        if ( pause) //暂停
+        {
+            // 调用新的 RenderGameover 函数
+            renderer.RenderPause(Hit_Texture,  Hit_Rect, crouch, TheDINO_Rect, Hit_Surface);
+
+            while (SDL_WaitEvent(&MainEvent))
+            {
+                bool Replay = false;
+                switch (MainEvent.type)
+                {
+                    case SDL_QUIT:
+                        stop_thread = true;
+                        t.join();
+                        return;
+                        break;
+
+                    case SDL_KEYDOWN:
+                        switch (MainEvent.key.keysym.sym)
+                        {
+                            case SDLK_ESCAPE:
+                                return;
+                                break;
+
+                            case SDLK_RETURN:
+                                Replay = true;
+                                break;
+
+                            case SDLK_p:
+                                pause = true;
+                                break;
+
+                            default:
+                                break;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+
+                if (Replay)
+                {
+                    pause = false;
+                    Mix_ResumeMusic();
+
+                    if (score_m / 5 > highestscore)
+                    {
+                        highestscore = score_m / 5;
+                    }
+
+//                    SDL_FreeSurface(HI_Surface);
+//                    SDL_DestroyTexture(HI_Texture);
+//                    Set();
+
+                    break;
+                }
+            }
+            SDL_Delay(100);
+        }
+        else
+        {
+            ControlFPS(FStartTime);
+        }
     }
-    
+
     t.join();
 }
 

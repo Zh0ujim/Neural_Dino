@@ -246,6 +246,18 @@ void Renderer::RenderGameover(SDL_Texture* hitTexture, SDL_Texture* gameoverText
     SDL_RenderPresent(Renderer_);
 }
 
+void Renderer::RenderPause(SDL_Texture* hitTexture,  SDL_Rect& hitRect,  bool crouch, SDL_Rect* theDinoRect, SDL_Surface* hitSurface) {
+    if (crouch) {
+        hitRect = { theDinoRect[1].x + theDinoRect[1].w - hitSurface->w, theDinoRect[1].y + 2, hitSurface->w, hitSurface->h };
+    } else {
+        hitRect = { theDinoRect[0].x + theDinoRect[0].w - hitSurface->w, theDinoRect[0].y, hitSurface->w, hitSurface->h };
+    }
+    SDL_RenderCopy(Renderer_, hitTexture, NULL, &hitRect);
+    // SDL_RenderCopy(Renderer_, gameoverTexture, NULL, &gameoverRect);
+    // SDL_RenderCopy(Renderer_, restartTexture, NULL, &restartRect);
+    SDL_RenderPresent(Renderer_);
+}
+
 void Renderer::DestroyTexture(SDL_Texture*& texture) {
     if (texture) {
         SDL_DestroyTexture(texture);
