@@ -11,6 +11,7 @@
 #include <unistd.h>
 //#include "events.hpp"
 #include "maxlab/include/maxlab/maxlab.h"
+#include <chrono>
 
 int calculateDistance(SDL_Rect dino, struct use *obstacles) {
     int min_distance = INT_MAX;
@@ -44,6 +45,7 @@ void message_thread(){
 
     bool reset_isi=true;
     bool reset_sti=true;
+    auto last_stimulus_time = std::chrono::steady_clock::now();
     //printf("stop_thread=%d\n",stop_thread.load());
     while (!stop_thread) {
 
@@ -54,68 +56,43 @@ void message_thread(){
         if (status == maxlab::Status::MAXLAB_NO_FRAME)
             continue;
 
+        // 获取当前时间
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_stimulus_time).count();
 
-        printf("isi(thread):%d\n",isi);
-
-        if(distance<=200&&distance>194) {       //当距离在这个区间时，需要立即给出刺激，所以将isi置0，reset_isi 保证只会置0一次
-            if (reset_isi) {          //防止发送过多序列
-                    isi = 0;
-                    reset_isi = false; // 重置后，将reset_blanking设为false
-                }
-        }
-        else{
-                reset_isi = true;    //允许重置isi
-        }
-
-        if(isi == 0){
-            if(distance>1500 ) {
-                const maxlab::Status status = maxlab::sendSequence("close_loop1");
-                isi = 2000 * 20;
+        if (distance > 1500 && elapsed_time >= 4000) {
+            const maxlab::Status status = maxlab::sendSequence("close_loop1");
+            last_stimulus_time = now;
+        } else if (distance <= 1500 && distance > 200 && elapsed_time >= 2*(distance * 20)/20) {
+            const maxlab::Status status = maxlab::sendSequence("close_loop1");
+            last_stimulus_time = now;
+        } else if (distance <= 200 && distance > 120 && elapsed_time >= (120 * 20)/20) {
+            const maxlab::Status status = maxlab::sendSequence("close_loop1");
+            last_stimulus_time = now;
+        } else if (distance <= 120 && distance > 100 ) {
+            if(reset_sti){    
+                const maxlab::Status status = maxlab::sendSequence("close_loop2");
+                reset_sti = false;
+                last_stimulus_time = now;
             }
-            else if(distance<=1500&&distance>200 ) {
-                const maxlab::Status status = maxlab::sendSequence("close_loop1");
-                isi = static_cast<uint64_t>(distance * 20) ;
-            }
-            else if(distance<=200&&distance>120){
-                const maxlab::Status status = maxlab::sendSequence("close_loop1");
-                isi = (120) * 20;   //100*100/200=50ms
-            }
-            else if(distance<=120 && distance>80){
-                if (reset_sti) { 
-                    const maxlab::Status status = maxlab::sendSequence("close_loop2");
-                    reset_sti = false; 
-                } 
-            }
-            else reset_sti = true;
-
-
-
-            if (status != maxlab::Status::MAXLAB_OK) {
-              maxlab::Response response = maxlab::sendRaw("get_errors");
-              fprintf(stderr, "An error occured: %s\n", response.content);
-              maxlab::freeResponse(&response);
-            }
+        } else {
+            reset_sti = true;
         }
 
+        if (status != maxlab::Status::MAXLAB_OK) {
+            maxlab::Response response = maxlab::sendRaw("get_errors");
+            fprintf(stderr, "An error occured: %s\n", response.content);
+            maxlab::freeResponse(&response);
+        }
 
         spikes_count = frameData.spikeCount;
 
-
-        if(isi > 0){
-            --isi;
-            if (isi != 0)
-                continue;
-        }
-
-
-
-        if(spikes_count>=10){
+        if (spikes_count >= 20) {
             printf("spike count(thread): %d\n", spikes_count.load());
             jump = 1;
-            //blanking = 20000;  //2000 samples,100ms
         }
 
-        printf("jump(thread)=%d\n",jump.load());
+        printf("jump(thread)=%d\n", jump.load());
 
     //        for (int i = 0; i < frameData.spikeCount; ++i) {
     //            const maxlab::SpikeEvent &spike = frameData.spikeEvents[i];
