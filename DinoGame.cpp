@@ -38,7 +38,7 @@ std::queue<DataSample> sampleQueue;
 std::mutex queueMutex;
 std::condition_variable dataCondition;
 
-// 控制程序运行状态的标志
+// 控制程序运���状态的标志
 std::atomic<bool> isRunning(true);
 
 // 模型参数（逻辑回归模型）
@@ -546,75 +546,24 @@ void DinoGame::Play() {
         // 碰撞检测
         CD();
 
-        if (life < 0)
-        {
+        if (life < 0) {
             // 调用新的 RenderGameover 函数
             renderer.RenderGameover(Hit_Texture, Gameover_Texture, Restart_Texture, Hit_Rect, Gameover_Rect, Restart_Rect, crouch, TheDINO_Rect, Hit_Surface);
+            std::cout << "Game Over" << std::endl;
+            // 等待一秒钟
+            SDL_Delay(1000);
 
-            while (SDL_WaitEvent(&MainEvent))
-            {
-                bool Replay = false;
-                switch (MainEvent.type)
-                {
-                    case SDL_QUIT:
-                        stop_thread = true;
-                        t.join();
-                        return;
-                        break;
-
-                    case SDL_KEYDOWN:
-                        switch (MainEvent.key.keysym.sym)
-                        {
-                            case SDLK_ESCAPE:
-                                stop_thread = true;
-                                t.join();
-                                return;
-                                break;
-
-                            case SDLK_RETURN:
-                                Replay = true;
-                                break;
-                            
-                            case SDLK_p:
-                                pause = true;
-                                break;
-
-                            default:
-                                break;
-                        }
-                        break;
-
-                    case SDL_MOUSEBUTTONDOWN:
-                        if (MainEvent.button.x > Restart_Rect.x && MainEvent.button.y > Restart_Rect.y && MainEvent.button.x < Restart_Rect.x + Restart_Rect.w && MainEvent.button.y < Restart_Rect.y + Restart_Rect.h)
-                        {
-                            Replay = true;
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-
-                if (Replay)
-                {
-                    Mix_ResumeMusic();
-
-                    if (score_m / 5 > highestscore)
-                    {
-                        highestscore = score_m / 5;
-                    }
-
-                    SDL_FreeSurface(HI_Surface);
-                    SDL_DestroyTexture(HI_Texture);
-                    Set();
-
-                    break;
-                }
+            // 自动重新开始游戏
+            if (score_m / 5 > highestscore) {
+                highestscore = score_m / 5;
             }
+
+            SDL_FreeSurface(HI_Surface);
+            SDL_DestroyTexture(HI_Texture);
+            Set();
+            std::cout << "Set" << std::endl;
             SDL_Delay(100);
-        }
-        else
-        {
+        } else {
             ControlFPS(FStartTime);
         }
 

@@ -244,6 +244,8 @@ void Renderer::RenderGameover(SDL_Texture* hitTexture, SDL_Texture* gameoverText
     SDL_RenderCopy(Renderer_, gameoverTexture, NULL, &gameoverRect);
     SDL_RenderCopy(Renderer_, restartTexture, NULL, &restartRect);
     SDL_RenderPresent(Renderer_);
+    std::cout << "Game Over in RenderGameOver" << std::endl;
+    return ;
 }
 
 void Renderer::RenderPause(SDL_Texture* hitTexture,  SDL_Rect& hitRect,  bool crouch, SDL_Rect* theDinoRect, SDL_Surface* hitSurface) {
