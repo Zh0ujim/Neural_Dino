@@ -154,7 +154,7 @@ def create_sequence(token, stim_unit, amplitude,inter_pulse_interval, nr_of_puls
 # Prepare one pulse called 'trigger', we use this to simulate a spike
 # on one of the channels by applying an electrical stimulation pulse
 IPI_trigger=inter_pulse_interval
-seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_amplitude, 0,1)
+seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_amplitude, 1,1)
 
 
 
@@ -164,7 +164,7 @@ seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_a
 IPI_close_loop1 = inter_pulse_interval
 seq1 = create_sequence('close_loop1', stimulation1, trigger_stimulation_amplitude,0, 1)
 IPI_close_loop2 = inter_pulse_interval
-seq2 = create_sequence('close_loop2', stimulation2, close_loop_stimulation_amplitude,50, 8)
+seq2 = create_sequence('close_loop2', stimulation2, close_loop_stimulation_amplitude,50, 4)
 
 
 ######################################################################
