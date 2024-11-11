@@ -38,13 +38,72 @@ std::queue<DataSample> sampleQueue;
 std::mutex queueMutex;
 std::condition_variable dataCondition;
 
-// 控制程序运���状态的标志
+// 控制程序运��状态的标志
 std::atomic<bool> isRunning(true);
 
+// 添加 LogisticRegression 类的定义
+class LogisticRegression {
+public:
+    LogisticRegression(int num_features, double learning_rate)
+        : w(num_features, 0.0), b(0.0), lr(learning_rate) {}
+
+    // Sigmoid 函数
+    double sigmoid(double z) {
+        return 1.0 / (1.0 + std::exp(-z));
+    }
+
+    // 预测概率
+    double predict_proba(const std::vector<double>& x) {
+        double z = b;
+        for (size_t i = 0; i < w.size(); ++i) {
+            z += w[i] * x[i];
+        }
+        return sigmoid(z);
+    }
+
+    // 对输入样本进行分类，返回 0 或 1
+    int predict(const std::vector<double>& x) {
+        return predict_proba(x) >= 0.5 ? 1 : 0;
+    }
+
+    // 使用 SGD 更新参数
+    void update(const std::vector<double>& x, int y) {
+        double y_pred = predict_proba(x);
+        double error = y_pred - y;
+
+        // 更新权重
+        for (size_t i = 0; i < w.size(); ++i) {
+            w[i] -= lr * error * x[i];
+        }
+        // 更新偏置
+        b -= lr * error;
+    }
+
+    // 计算损失
+    double compute_loss(const std::vector<double>& x, int y) {
+        double y_pred = predict_proba(x);
+        return -y * std::log(y_pred + 1e-10) - (1 - y) * std::log(1 - y_pred + 1e-10);
+    }
+
+    // 获取权重
+    const std::vector<double>& get_weights() const {
+        return w;
+    }
+
+    // 获取偏置
+    double get_bias() const {
+        return b;
+    }
+
+private:
+    std::vector<double> w; // 权重向量
+    double b;              // 偏置
+    double lr;             // 学习率
+};
+
 // 模型参数（逻辑回归模型）
-std::vector<double> weights(num_channels,0.0); // 权重向量，大小为通道数
-double bias = 0.0;
 double learning_rate = 0.001; // 根据需要调整学习率
+LogisticRegression model(num_channels, learning_rate);
 
 // 用于同步刺激发送和数据收集的条件变量和互斥锁
 std::mutex stimulationMutex;
@@ -54,6 +113,12 @@ std::atomic<int> currentLabel(-1); // 存储当前刺激的标签
 
 // 训练次数计数
 std::atomic<int> iteration_count(0);
+
+// 定义用于归一化的全局变量
+std::vector<double> feature_means(num_channels, 0.0);
+std::vector<double> feature_stds(num_channels, 1.0); // 初始标准差为1，避免除以零
+std::vector<double> M2(num_channels, 0.0);
+int sample_count = 0;
 
 // 数据收集函数，收集刺激后100ms内的数据
 void collectDataAfterStimulation(int label) {
@@ -105,6 +170,28 @@ void collectDataAfterStimulation(int label) {
         spike_rates.push_back(static_cast<double>(count)); // 放电次数，即尖峰计数
     }
 
+    // 增量更新均值和标准差
+    sample_count++;
+    for (int i = 0; i < num_channels; ++i) {
+        double x = spike_rates[i];
+        // 更新均值
+        double delta = x - feature_means[i];
+        feature_means[i] += delta / sample_count;
+        // 更新 M2
+        double delta2 = x - feature_means[i];
+        M2[i] += delta * delta2;
+        // 计算标准差
+        if (sample_count > 1) {
+            double variance = M2[i] / (sample_count - 1);
+            feature_stds[i] = std::sqrt(variance);
+            if (feature_stds[i] == 0.0) {
+                feature_stds[i] = 1.0; // 防止除以零
+            }
+        }
+        // 对特征进行归一化
+        spike_rates[i] = (x - feature_means[i]) / feature_stds[i];
+    }
+
     // 将数据样本加入队列，等待模型训练
     {
         std::lock_guard<std::mutex> lock(queueMutex);
@@ -113,8 +200,24 @@ void collectDataAfterStimulation(int label) {
     dataCondition.notify_one();
 }
 
-// 模型训练线程，使用在线SGD更新模型参数
+// 引入头文件
+#include <fstream>
+#include <iomanip>
+
+// 定义全局变量
+std::ofstream log_file("training_log.txt");
+std::ofstream csv_file("training_metrics.csv");
+std::atomic<int> correct_predictions(0);
+std::atomic<double> total_loss(0.0);
+
+// 初始化 CSV 文件头
+void initializeLogs() {
+    csv_file << "iteration,accuracy,avg_loss,current_loss,prediction,true_label,prediction_prob\n";
+}
+
+// 修改模型训练线程
 void modelTrainingThread() {
+    initializeLogs();
     while (isRunning) {
         std::unique_lock<std::mutex> lock(queueMutex);
         dataCondition.wait(lock, []{ return !sampleQueue.empty() || !isRunning.load(); });
@@ -129,39 +232,58 @@ void modelTrainingThread() {
 
         iteration_count++;
 
-        // 使用在线 SGD 更新模型参数
-        // 计算线性输出
-        double linear_output = bias;
-        for (size_t i = 0; i < weights.size(); ++i) {
-            linear_output += weights[i] * sample.spike_rates[i];
+        // 预测和计算损失
+        double y_pred = model.predict_proba(sample.spike_rates);
+        int prediction = model.predict(sample.spike_rates);
+        double loss = model.compute_loss(sample.spike_rates, sample.label);
+
+        // 更新统计信息
+        total_loss += loss;
+        if (prediction == sample.label) {
+            correct_predictions++;
         }
-        // 计算预测概率（逻辑回归的 sigmoid 函数）
-        double y_pred = 1.0 / (1.0 + exp(-linear_output));
+        double accuracy = static_cast<double>(correct_predictions.load()) / iteration_count.load();
+        double avg_loss = total_loss.load() / iteration_count.load();
 
-        // 计算误差
-        double error = y_pred - sample.label;
+        // 将关键信息写入 CSV 文件
+        csv_file << iteration_count.load() << ","
+                 << accuracy << ","
+                 << avg_loss << ","
+                 << loss << ","
+                 << prediction << ","
+                 << sample.label << ","
+                 << y_pred << "\n";
 
-        // 计算损失（交叉熵损失）
-        double loss = - (sample.label * log(y_pred + 1e-10) + (1 - sample.label) * log(1 - y_pred + 1e-10));
+        // 每10次迭代记录日志
+        if (iteration_count.load() % 10 == 0) {
+            log_file << "\n第 " << iteration_count.load() << " 次迭代：\n";
+            log_file << "----------------------------------------\n";
+            log_file << "累计准确率: " << accuracy * 100 << "%\n";
+            log_file << "平均损失: " << avg_loss << "\n";
+            // 打印当前权重
+            log_file << "当前权重: [";
+            const auto& weights = model.get_weights();
+            for (size_t i = 0; i < weights.size(); ++i) {
+                log_file << std::fixed << std::setprecision(6) << weights[i];
+                if (i != weights.size() - 1) log_file << ", ";
+            }
+            log_file << "]\n";
+            log_file << "当前偏置: " << model.get_bias() << "\n";
+            log_file << "----------------------------------------\n";
 
-        // 更新权重和偏置
-        for (size_t i = 0; i < weights.size(); ++i) {
-            weights[i] -= learning_rate * error * sample.spike_rates[i];
+            // 在控制台显示进度
+            std::cout << "进度: " << iteration_count.load()
+                      << ", 准确率: " << accuracy * 100 << "%, "
+                      << "平均损失: " << avg_loss << std::endl;
         }
-        bias -= learning_rate * error;
 
-        // 打印关键信息
-        std::cout << "Iteration: " << iteration_count.load() << std::endl;
-        std::cout << "True Label: " << sample.label << ", Predicted Value: " << y_pred << std::endl;
-        std::cout << "Loss: " << loss << std::endl;
-        std::cout << "Weights: [";
-        for (size_t i = 0; i < weights.size(); ++i) {
-            std::cout << weights[i];
-            if (i != weights.size() - 1) std::cout << ", ";
-        }
-        std::cout << "], Bias: " << bias << std::endl;
-        std::cout << "----------------------------------------" << std::endl;
+        // 使用模型更新参数
+        model.update(sample.spike_rates, sample.label);
     }
+
+    // 关闭日志文件
+    log_file.close();
+    csv_file.close();
 }
 
 // 数据收集线程
@@ -375,7 +497,7 @@ void DinoGame::PrepareAll() {
         crouching_rect[i] = (SDL_Rect){ 0,Crouching_Surface->h / 2 * i,Crouching_Surface->w,Crouching_Surface->h / 2 };
     }
 
-    // 设置“Game Over”和“Restart”按钮的矩形区域
+    // ��置“Game Over”和“Restart”按钮的矩形区域
     Gameover_Rect = {(Width_Window - Gameover_Surface->w) / 2, Height_Window / 4, Gameover_Surface->w, Gameover_Surface->h};
     Restart_Rect = {(Width_Window - Restart_Surface->w) / 2, Gameover_Rect.y + Gameover_Surface->h + 5, Restart_Surface->w, Restart_Surface->h};
     
@@ -424,7 +546,7 @@ void DinoGame::Jump() {
     // 进行跳跃动画的循环
     for (int i = 0; i < 2 * V * Tan + 1; i++)
     {
-        // 计算跳跃位置的变化
+        // 计算跳跃位���的变化
         t += (i - V * Tan) * 2 * Height_Window / (double)(3 * V * Tan * V * Tan);
 
         // 更新 TheDINO_Rect[0] 的纵坐标
@@ -550,7 +672,7 @@ void DinoGame::Play() {
             // 调用新的 RenderGameover 函数
             renderer.RenderGameover(Hit_Texture, Gameover_Texture, Restart_Texture, Hit_Rect, Gameover_Rect, Restart_Rect, crouch, TheDINO_Rect, Hit_Surface);
             std::cout << "Game Over" << std::endl;
-            // 等待一秒钟
+            // 等一秒钟
             SDL_Delay(1000);
 
             // 自动重新开始游戏
