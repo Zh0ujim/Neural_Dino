@@ -38,7 +38,7 @@ std::queue<DataSample> sampleQueue;
 std::mutex queueMutex;
 std::condition_variable dataCondition;
 
-// 控制程序运��状态的标志
+// 控制程序运行状态的标志
 std::atomic<bool> isRunning(true);
 
 // 添加 LogisticRegression 类的定义
@@ -125,7 +125,7 @@ void collectDataAfterStimulation(int label) {
     // 定义一个容器，存储指定通道的尖峰计数
     std::vector<int> spike_counts(num_channels, 0);
 
-    // 创建一个集合，方便快速判断通道是否在指定列表中
+    // 创建一个集合���方便快速判断通道是否在指定列表中
     std::unordered_set<int> channel_set(specified_channels.begin(), specified_channels.end());
 
     // 记录开始时间
@@ -205,17 +205,23 @@ void collectDataAfterStimulation(int label) {
 #include <iomanip>
 
 // 定义全局变量
-std::ofstream log_file("training_log.txt");
-std::ofstream csv_file("training_metrics.csv");
+std::ofstream log_file;
+std::ofstream csv_file;
 std::atomic<int> correct_predictions(0);
 std::atomic<double> total_loss(0.0);
 
-// 初始化 CSV 文件头
+// 初始化日志文件和 CSV 文件
 void initializeLogs() {
+    log_file.open("training_log.txt");
+    csv_file.open("training_metrics.csv");
+    if (!log_file.is_open() || !csv_file.is_open()) {
+        std::cerr << "无法打开日志文件或 CSV 文件" << std::endl;
+        return;
+    }
     csv_file << "iteration,accuracy,avg_loss,current_loss,prediction,true_label,prediction_prob\n";
 }
 
-// 修改模型训练线程
+// 修改模型训练线���
 void modelTrainingThread() {
     initializeLogs();
     while (isRunning) {
@@ -255,7 +261,7 @@ void modelTrainingThread() {
                  << y_pred << "\n";
 
         // 每10次迭代记录日志
-        if (iteration_count.load() % 10 == 0) {
+        if (iteration_count.load() % 1 == 0) {
             log_file << "\n第 " << iteration_count.load() << " 次迭代：\n";
             log_file << "----------------------------------------\n";
             log_file << "累计准确率: " << accuracy * 100 << "%\n";
@@ -282,8 +288,12 @@ void modelTrainingThread() {
     }
 
     // 关闭日志文件
-    log_file.close();
-    csv_file.close();
+    if (log_file.is_open()) {
+        log_file.close();
+    }
+    if (csv_file.is_open()) {
+        csv_file.close();
+    }
 }
 
 // 数据收集线程
@@ -329,7 +339,7 @@ void message_thread() {
     bool reset_isi = true;
     bool reset_sti = true;
     auto last_stimulus_time = std::chrono::steady_clock::now();
-    while (!stop_thread) {
+    while (isRunning) {
         distance = calculateDistance(TheDINO_Rect[0], Obstacle_Use);
         //printf("distance(thread): %d\n", distance);
 
@@ -497,7 +507,7 @@ void DinoGame::PrepareAll() {
         crouching_rect[i] = (SDL_Rect){ 0,Crouching_Surface->h / 2 * i,Crouching_Surface->w,Crouching_Surface->h / 2 };
     }
 
-    // ��置“Game Over”和“Restart”按钮的矩形区域
+    // 设置“Game Over”和“Restart”按钮的矩形区域
     Gameover_Rect = {(Width_Window - Gameover_Surface->w) / 2, Height_Window / 4, Gameover_Surface->w, Gameover_Surface->h};
     Restart_Rect = {(Width_Window - Restart_Surface->w) / 2, Gameover_Rect.y + Gameover_Surface->h + 5, Restart_Surface->w, Restart_Surface->h};
     
@@ -546,7 +556,7 @@ void DinoGame::Jump() {
     // 进行跳跃动画的循环
     for (int i = 0; i < 2 * V * Tan + 1; i++)
     {
-        // 计算跳跃位���的变化
+        // 计算跳跃位置的变化
         t += (i - V * Tan) * 2 * Height_Window / (double)(3 * V * Tan * V * Tan);
 
         // 更新 TheDINO_Rect[0] 的纵坐标
@@ -595,7 +605,10 @@ void DinoGame::Play() {
             {
                 case SDL_QUIT:
                     stop_thread = true;
+                    isRunning = false;
                     t.join();
+                    dataCollectorThread.join();
+                    trainingThread.join();
                     return;
                     break;
 
@@ -604,7 +617,10 @@ void DinoGame::Play() {
                     {
                         case SDLK_ESCAPE:
                             stop_thread = true;
+                            isRunning = false;
                             t.join();
+                            dataCollectorThread.join();
+                            trainingThread.join();
                             return;
                             break;
 
@@ -701,7 +717,10 @@ void DinoGame::Play() {
                 {
                     case SDL_QUIT:
                         stop_thread = true;
+                        isRunning = false;
                         t.join();
+                        dataCollectorThread.join();
+                        trainingThread.join();
                         return;
                         break;
 
@@ -755,6 +774,8 @@ void DinoGame::Play() {
     }
 
     t.join();
+    dataCollectorThread.join();
+    trainingThread.join();
 }
 
 void DinoGame::ControlFPS(clock_t FStartTime) {
