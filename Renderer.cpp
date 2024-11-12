@@ -117,7 +117,8 @@ void Renderer::RenderObstacle(SDL_Surface* surface[], SDL_Rect rects[], int coun
 
         if (Obstacle_Use[i].space < -Width_Window / 2)
         {
-            Obstacle_Use[i].space = Width_Window;
+            // 调整障碍物重新生成的位置，增加间隔
+            Obstacle_Use[i].space = Width_Window + Obstacle_Spacing + rand() % MinInterval_Half;
         }
 
         if (Obstacle_Use[i].Obstacle_i > -1)

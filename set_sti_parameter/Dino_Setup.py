@@ -146,7 +146,7 @@ def create_sequence(token, stim_unit, amplitude,inter_pulse_interval, nr_of_puls
     seq.append(power_up)
     for i in range(nr_of_pulses-1):
         append_stimulation_pulse(seq, amplitude)
-        seq.append(maxlab.system.DelaySamples(inter_pulse_interval * 20))
+        seq.append(maxlab.system.DelaySamples(inter_pulse_interval * 20)) #each sample corresponds to 50us.
     append_stimulation_pulse(seq, amplitude)                                    #保证没有delaysample在最后
     seq.append(power_down)
     return seq
@@ -154,7 +154,7 @@ def create_sequence(token, stim_unit, amplitude,inter_pulse_interval, nr_of_puls
 # Prepare one pulse called 'trigger', we use this to simulate a spike
 # on one of the channels by applying an electrical stimulation pulse
 IPI_trigger=inter_pulse_interval
-seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_amplitude, 1,1)
+seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_amplitude, 0,1)
 
 
 
@@ -162,9 +162,9 @@ seq_trig = create_sequence('trigger', trigger_stimulation, trigger_stimulation_a
 # This sequence needs to be prepared here in python, but it will be triggered
 # through the 'close_loop' token in the C++ application
 IPI_close_loop1 = inter_pulse_interval
-seq1 = create_sequence('close_loop1', stimulation1, trigger_stimulation_amplitude,0, 1)
+seq1 = create_sequence('close_loop1', stimulation1, close_loop_stimulation_amplitude,0, 1)
 IPI_close_loop2 = inter_pulse_interval
-seq2 = create_sequence('close_loop2', stimulation2, close_loop_stimulation_amplitude,50, 4)
+seq2 = create_sequence('close_loop2', stimulation2, close_loop_stimulation_amplitude,100, 2)
 
 
 ######################################################################

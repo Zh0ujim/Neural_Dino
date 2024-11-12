@@ -38,7 +38,7 @@ std::queue<DataSample> sampleQueue;
 std::mutex queueMutex;
 std::condition_variable dataCondition;
 
-// 控制程序运行状态的标志
+// 控制程序运���状态的标志
 std::atomic<bool> isRunning(true);
 
 // 添加 LogisticRegression 类的定义
@@ -125,7 +125,7 @@ void collectDataAfterStimulation(int label) {
     // 定义一个容器，存储指定通道的尖峰计数
     std::vector<int> spike_counts(num_channels, 0);
 
-    // 创建一个集合���方便快速判断通道是否在指定列表中
+    // 创建一个集合，方便快速判断通道是否在指定列表中
     std::unordered_set<int> channel_set(specified_channels.begin(), specified_channels.end());
 
     // 记录开始时间
@@ -221,7 +221,7 @@ void initializeLogs() {
     csv_file << "iteration,accuracy,avg_loss,current_loss,prediction,true_label,prediction_prob\n";
 }
 
-// 修改模型训练线���
+// 修改模型训练线程
 void modelTrainingThread() {
     initializeLogs();
     while (isRunning) {
@@ -287,6 +287,8 @@ void modelTrainingThread() {
         model.update(sample.spike_rates, sample.label);
     }
 
+    std::cout << "模型训练线程结束" << std::endl;
+
     // 关闭日志文件
     if (log_file.is_open()) {
         log_file.close();
@@ -311,6 +313,7 @@ void dataCollectionThread() {
 
         collectDataAfterStimulation(label);
     }
+    std::cout << "数据收集线程结束" << std::endl;
 }
 
 int calculateDistance(SDL_Rect dino, struct use *obstacles) {
@@ -369,18 +372,10 @@ void message_thread() {
                 currentLabel = 1; // 设置标签
             }
             stimulationCondition.notify_one();
-        } else if (distance <= 200 && distance > 120 && elapsed_time >= (120 * 20) / 20) {
-            const maxlab::Status status = maxlab::sendSequence("close_loop1");
-            last_stimulus_time = now;
-            {
-                std::lock_guard<std::mutex> lock(stimulationMutex);
-                stimulationTriggered = true;
-                currentLabel = 1; // 设置标签
-            }
-            stimulationCondition.notify_one();
-        } else if (distance <= 120 && distance > 100) {
+        } 
+        else if (distance <= 200 && distance > 120 ) {
             if (reset_sti) {
-                const maxlab::Status status = maxlab::sendSequence("close_loop2");
+                const maxlab::Status status = maxlab::sendSequence("trigger");
                 reset_sti = false;
                 last_stimulus_time = now;
                 {
@@ -390,7 +385,21 @@ void message_thread() {
                 }
                 stimulationCondition.notify_one();
             }
-        } else {
+        } 
+        // else if (distance <= 120 && distance > 100) {
+        //     if (reset_sti) {
+        //         const maxlab::Status status = maxlab::sendSequence("close_loop2");
+        //         reset_sti = false;
+        //         last_stimulus_time = now;
+        //         {
+        //             std::lock_guard<std::mutex> lock(stimulationMutex);
+        //             stimulationTriggered = true;
+        //             currentLabel = 0; // 设置标签
+        //         }
+        //         stimulationCondition.notify_one();
+        //     }
+        // } 
+        else {
             reset_sti = true;
         }
 
@@ -409,6 +418,7 @@ void message_thread() {
 
         // printf("jump(thread)=%d\n", jump.load());
     }
+    std::cout << "消息线程结束" << std::endl;
     maxlab::verifyStatus(maxlab::DataStreamerFiltered_close());
 }
 
@@ -535,10 +545,10 @@ void DinoGame::Set() {
     std_ = Dino_menu_Rect.y;
 
     for (int i = 0; i < 3; ++i) {
-        Obstacle_Use[i] = { -1, Width_Window / 2 * (i + 2), false };
+        Obstacle_Use[i] = { -1, Obstacle_Spacing * (i + 2), false };
     }
 
-    // 更新最高分数显示
+    // 更新最高分数显��
     unsigned long temp = highestscore % 1000000;
     for (int i = 5; i >= 0; i--) {
         Score[i] = '0';
@@ -550,7 +560,7 @@ void DinoGame::Set() {
 }
 
 void DinoGame::Jump() {
-    // 记录恐龙初始的纵坐标
+    // 记录恐龙初始的���坐标
     double t = TheDINO_Rect[0].y;
 
     // 进行跳跃动画的循环
@@ -604,8 +614,12 @@ void DinoGame::Play() {
             switch (MainEvent.type)
             {
                 case SDL_QUIT:
+                    std::cout << "quit" << std::endl;
                     stop_thread = true;
                     isRunning = false;
+                    // 通知所有等待的条件变量
+                    stimulationCondition.notify_all();
+                    dataCondition.notify_all();
                     t.join();
                     dataCollectorThread.join();
                     trainingThread.join();
@@ -616,8 +630,12 @@ void DinoGame::Play() {
                     switch (MainEvent.key.keysym.sym)
                     {
                         case SDLK_ESCAPE:
+                            std::cout << "esc" << std::endl;
                             stop_thread = true;
                             isRunning = false;
+                            // 通知所有等待的条件变量
+                            stimulationCondition.notify_all();
+                            dataCondition.notify_all();
                             t.join();
                             dataCollectorThread.join();
                             trainingThread.join();
@@ -665,11 +683,11 @@ void DinoGame::Play() {
         //Select Speed
         if (score_m >= 2500)
         {
-            rate = 1.25;
+            rate = 1;
         }
         else if (score_m >= 10000)
         {
-            rate = 1.5;
+            rate = 1;
         }
 
 

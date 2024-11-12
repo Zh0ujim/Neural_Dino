@@ -14,6 +14,8 @@
 constexpr int Width_Window = 1600;
 constexpr int Height_Window = 350;
 constexpr int MinInterval_Half = 100;
+// 添加新的常量来增大障碍物间隔
+constexpr int Obstacle_Spacing = 800; // 将值设置为800，可根据需要调整
 constexpr int mFPS = 40;
 constexpr int V = 6;
 constexpr int Tan = 5;
