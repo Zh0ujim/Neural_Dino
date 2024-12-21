@@ -22,7 +22,9 @@
 #include <fstream>
 
 // 指定的通道列表
-const std::vector<int> specified_channels = {635, 849, 445, 569, 81, 163, 273, 971};
+const std::vector<int> specified_channels = {633, 985, 669, 781, 10717, 10765, 52, 51};//
+//const std::vector<int> specified_channels = {242, 32, 9, 633, 909, 103, 674, 860};//23342
+
 
 // 通道数量，即指定的通道数
 const int num_channels = specified_channels.size();
@@ -241,6 +243,10 @@ void modelTrainingThread() {
         // 预测和计算损失
         double y_pred = model.predict_proba(sample.spike_rates);
         int prediction = model.predict(sample.spike_rates);
+        if (prediction == 0) {
+                jump = true;
+                std::cout << "jump" << std::endl;
+        }
         double loss = model.compute_loss(sample.spike_rates, sample.label);
 
         // 更新统计信息

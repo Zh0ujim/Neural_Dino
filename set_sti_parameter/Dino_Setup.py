@@ -36,12 +36,12 @@ import time
 # 
 
 
-name_of_configuration = "closeLoop.cfg"
-trigger_electrode = 14471
-electrode1 = 13378
-electrode2 =  13248
-trigger_stimulation_amplitude = 17
-close_loop_stimulation_amplitude = 9
+name_of_configuration = "Dino.cfg"
+trigger_electrode = 7477
+electrode1 = 7477
+electrode2 =  7477
+trigger_stimulation_amplitude = 207
+close_loop_stimulation_amplitude = 34
 data_directory = "."
 
 inter_pulse_interval = 2000 # in ms
@@ -185,7 +185,7 @@ print("Start saving to file")
 
 for rep in range(5):
     seq_trig.send()
-    time.sleep(2)
+    time.sleep(10)
 
 print("Stop saving to file")
 #s.stop_recording()
