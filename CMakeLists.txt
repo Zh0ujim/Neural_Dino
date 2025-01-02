@@ -9,11 +9,8 @@ include_directories("/home/zjm/work-space/Neural_Dino/SDL_all_in_one/include")
 include_directories("/home/zjm/work-space/Neural_Dino/maxlab/include/maxlab")
 
 link_directories("/home/zjm/work-space/Neural_Dino/SDL_all_in_one/lib")
-link_directories("/home/zjm/work-space/Neural_Dino/maxlab/lib")
+link_directories("/home/zjm/work-space/Neural_Dino/maxlab/lib") 
 
-#虚拟机相关头文件静态库路径
-# include_directories("/home/zjm/ZJM/SDL2_all_in_one/_install/include")
-# link_directories("/home/zjm/ZJM/SDL2_all_in_one/_install/lib")
 
 add_executable(Dino main.cpp DinoGame.cpp Renderer.cpp Globals.cpp)
 
