@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <fstream>
+#include <unordered_map>
 
 // 指定的通道列表
 const std::vector<int> specified_channels = {633, 985, 669, 781, 10717, 10765, 52, 51};//
@@ -40,7 +41,7 @@ std::queue<DataSample> sampleQueue;
 std::mutex queueMutex;
 std::condition_variable dataCondition;
 
-// 控制程序运���状态的标志
+// 控制程序运行状态的标志
 std::atomic<bool> isRunning(true);
 
 // 添加 LogisticRegression 类的定义
@@ -122,6 +123,12 @@ std::vector<double> feature_stds(num_channels, 1.0); // 初始标准差为1，�
 std::vector<double> M2(num_channels, 0.0);
 int sample_count = 0;
 
+// 预先生成通道到索引的映射
+std::unordered_map<uint16_t, int> channel_index_map;
+for (int i = 0; i < specified_channels.size(); ++i) {
+    channel_index_map[specified_channels[i]] = i;
+}
+
 // 数据收集函数，收集刺激后100ms内的数据
 void collectDataAfterStimulation(int label) {
     // 定义一个容器，存储指定通道的尖峰计数
@@ -153,15 +160,12 @@ void collectDataAfterStimulation(int label) {
         if (status == maxlab::Status::MAXLAB_NO_FRAME)
             continue;
 
-        // 遍历尖峰事件，统计指定通道的尖峰计数
+        // 优化后的循环
         for (int i = 0; i < frameData.spikeCount; ++i) {
-            const maxlab::SpikeEvent &spike = frameData.spikeEvents[i];
-            int channel = spike.channel;
-            if (channel_set.find(channel) != channel_set.end()) {
-                // 获取指定通道的索引
-                auto it = std::find(specified_channels.begin(), specified_channels.end(), channel);
-                int index = std::distance(specified_channels.begin(), it);
-                spike_counts[index]++;
+            const auto& spike = frameData.spikeEvents[i];
+            auto it = channel_index_map.find(spike.channel);
+            if (it != channel_index_map.end()) {
+                spike_counts[it->second]++;
             }
         }
     }
@@ -492,7 +496,7 @@ void DinoGame::PrepareAll() {
         renderer.LoadTexture("images/Obstacle_" + std::string(1, 'a' + i) + ".png", Obstacle_Texture[i], Obstacles_Rect[i]);
     }
 
-    // 渲染“Game Over”字体
+    // 渲染"Game Over"字体
     Gameover_Surface = TTF_RenderUTF8_Blended(Gameover_Font, "G A M E  O V E R", Gameover_Color);
     if(Gameover_Surface==nullptr) std::cout << "Gameover_Surface Failed"<<std::endl;
     Gameover_Texture = SDL_CreateTextureFromSurface(renderer.GetRenderer(), Gameover_Surface);
@@ -554,7 +558,7 @@ void DinoGame::Set() {
         Obstacle_Use[i] = { -1, Obstacle_Spacing * (i + 2), false };
     }
 
-    // 更新最高分数显��
+    // 更新最高分数显示
     unsigned long temp = highestscore % 1000000;
     for (int i = 5; i >= 0; i--) {
         Score[i] = '0';
@@ -566,7 +570,7 @@ void DinoGame::Set() {
 }
 
 void DinoGame::Jump() {
-    // 记录恐龙初始的���坐标
+    // 记录恐龙初始的坐标
     double t = TheDINO_Rect[0].y;
 
     // 进行跳跃动画的循环
