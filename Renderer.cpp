@@ -202,14 +202,20 @@ void Renderer::RenderDino(SDL_Texture* texture, SDL_Rect* rect) {
 }
 
 void Renderer::RenderScore(unsigned long score, TTF_Font* font, SDL_Rect& Score_Rect) {
-    std::string Score(7,'0') ;
-    for (int i = 5; i >= 0 && score != 0; i--)
+    // 使用全局Score数组而不是创建局部变量
+    // 首先重置数组为全0
+    for (int i = 0; i < 6; i++) {
+        Score[i] = '0';
+    }
+    // 然后填充实际分数
+    unsigned long temp = score;
+    for (int i = 5; i >= 0 && temp != 0; i--)
     {
-        Score[i] = score % 10 + '0';
-        score /= 10;
+        Score[i] = temp % 10 + '0';
+        temp /= 10;
     }
 
-    SDL_Surface* Score_Surface = TTF_RenderUTF8_Blended(font, Score.c_str(), Score_Color);
+    SDL_Surface* Score_Surface = TTF_RenderUTF8_Blended(font, Score, Score_Color);
     if (Score_Surface == nullptr) {
         std::cerr << "Failed to render score surface: " << TTF_GetError() << std::endl;
         return;
@@ -228,11 +234,12 @@ void Renderer::RenderScore(unsigned long score, TTF_Font* font, SDL_Rect& Score_
     
 
     SDL_RenderCopy(Renderer_, Score_Texture, nullptr, &Score_Rect);
-    SDL_RenderCopy(Renderer_, HI_Texture, NULL, &HI_Rect);
+    SDL_RenderCopy(Renderer_, HI_Texture, nullptr, &HI_Rect);
 
     SDL_FreeSurface(Score_Surface);
     SDL_DestroyTexture(Score_Texture);
-    
+    SDL_FreeSurface(HI_Surface);
+    SDL_DestroyTexture(HI_Texture);
 }
 
 void Renderer::RenderGameover(SDL_Texture* hitTexture, SDL_Texture* gameoverTexture, SDL_Texture* restartTexture, SDL_Rect& hitRect, SDL_Rect& gameoverRect, SDL_Rect& restartRect, bool crouch, SDL_Rect* theDinoRect, SDL_Surface* hitSurface) {
