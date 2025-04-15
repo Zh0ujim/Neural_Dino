@@ -124,10 +124,14 @@ std::vector<double> M2(num_channels, 0.0);
 int sample_count = 0;
 
 // 预先生成通道到索引的映射
-std::unordered_map<uint16_t, int> channel_index_map;
-for (int i = 0; i < specified_channels.size(); ++i) {
-    channel_index_map[specified_channels[i]] = i;
-}
+std::unordered_map<uint16_t, int> channel_index_map = [](){
+    std::unordered_map<uint16_t, int> map;
+    int i = 0;
+    for (const auto& channel : specified_channels) {
+        map[channel] = i++;
+    }
+    return map;
+}();
 
 // 数据收集函数，收集刺激后100ms内的数据
 void collectDataAfterStimulation(int label) {
